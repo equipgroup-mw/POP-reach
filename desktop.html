@@ -3,20 +3,15 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>POP Reach — Point of Progress Impact Map</title>
+  <title>Point of Progress Reach — Impact Map</title>
   <meta name="description" content="Point of Progress Reach — Impact across Malawi, district overview" />
-  <meta name="theme-color" content="#020244" />
-  <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <meta name="apple-mobile-web-app-title" content="POP Reach" />
-  
-  <!-- Favicon -->
-  <link rel="icon" type="image/png" sizes="32x32" href="popLOGO.png" />
-  <link rel="icon" type="image/png" sizes="16x16" href="popLOGO.png" />
-  <link rel="apple-touch-icon" href="popLOGO.png" />
-  
-  <!-- PWA Manifest -->
-  <link rel="manifest" href="manifest.json" />
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#020244">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Point of Progress Reach">
+  <link rel="icon" href="popLOGO.png" type="image/png">
+  <link rel="apple-touch-icon" href="popLOGO.png">
 
   <!-- D3 -->
   <script src="https://d3js.org/d3.v7.min.js"></script>
@@ -116,8 +111,8 @@
       gap: 12px;
     }
     .header-logo {
-      width: 40px;
-      height: 40px;
+      width: 42px;
+      height: 42px;
       border-radius: 8px;
       flex-shrink: 0;
     }
@@ -133,6 +128,34 @@
       font-size: 12px;
       color: #666;
       font-weight: 500;
+    }
+
+    /* ── POWERED BY ── */
+    .powered-by-footer {
+      position: absolute;
+      bottom: 20px;
+      left: var(--tv-safe);
+      z-index: 60;
+      pointer-events: none;
+      padding: 6px 12px;
+      background: rgba(255, 255, 255, 0.85);
+      border-radius: 8px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+    }
+    .powered-by-text {
+      font-size: 10px;
+      color: #999;
+      font-weight: 500;
+      margin: 0;
+    }
+    .powered-by-logo {
+      height: 42px;
+      width: auto;
+      display: block;
+      margin: 0;
     }
 
     /* ── PANELS (shared base) ── */
@@ -399,49 +422,72 @@
     }
     @keyframes spin { to { transform: rotate(360deg); } }
 
-    /* ── INSTALL PROMPT ── */
-    #install-banner {
+    /* ── INSTALL BUTTON ── */
+    .install-floating-btn {
       position: fixed;
-      bottom: 20px;
-      left: 50%;
-      transform: translateX(-50%);
-      background: var(--navy);
-      color: #fff;
-      padding: 12px 24px;
-      border-radius: 30px;
-      font-weight: 600;
-      font-size: 14px;
-      z-index: 300;
+      bottom: 26px;
+      right: 26px;
+      z-index: 1000;
       display: none;
       align-items: center;
-      gap: 12px;
-      box-shadow: 0 8px 24px rgba(2,2,68,0.3);
-      cursor: pointer;
-    }
-    #install-banner.show { display: flex; }
-    #install-banner button {
-      background: var(--teal);
+      gap: 8px;
+      background: var(--navy);
       color: #fff;
       border: none;
-      padding: 6px 16px;
-      border-radius: 20px;
-      font-weight: 700;
-      cursor: pointer;
+      border-radius: 50px;
+      padding: 12px 22px;
+      font-size: 14px;
+      font-weight: 600;
       font-family: inherit;
+      box-shadow: 0 6px 22px rgba(2,2,68,0.35);
+      cursor: pointer;
+      transition: transform 0.25s ease, box-shadow 0.25s ease, opacity 0.3s ease;
+      animation: installFloat 3.5s ease-in-out infinite;
+      white-space: nowrap;
+    }
+
+    .install-floating-btn.visible {
+      display: flex;
+    }
+
+    .install-floating-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 26px rgba(2,2,68,0.4);
+    }
+
+    .install-floating-btn:active {
+      transform: scale(0.95);
+      box-shadow: 0 4px 14px rgba(2,2,68,0.25);
+    }
+
+    .install-floating-btn .install-icon {
+      font-size: 18px;
+      line-height: 1;
+    }
+
+    @keyframes installFloat {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-6px); }
     }
   </style>
 </head>
 <body>
 
   <!-- HEADER -->
-  <div class="header">
+  <div class="header" id="header">
     <div class="header-card">
-      <img src="popLOGO.png" alt="POP Reach" class="header-logo" />
+      <img src="popLOGO.png" alt="Point of Progress" class="header-logo" />
       <div class="header-text">
         <h1>Point of Progress</h1>
-        <p>Impact across Malawi - District overview</p>
+        <p>Impact across Malawi — District overview</p>
       </div>
     </div>
+  </div>
+
+  <!-- POWERED BY -->
+  <div class="powered-by-footer" id="footer-logo">
+    <span class="powered-by-text">Powered by</span>
+    <img src="Equip.png" alt="Equip" class="powered-by-logo">
   </div>
 
   <!-- MAP ROOT -->
@@ -449,11 +495,16 @@
     <svg id="map-svg" preserveAspectRatio="xMidYMid meet"></svg>
   </div>
 
+  <!-- FLOATING INSTALL BUTTON -->
+  <button id="install-floating-btn" class="install-floating-btn" aria-label="Install app">
+    <span class="install-icon">📲</span> Install Point of Progress
+  </button>
+
   <!-- TOTALS PANEL -->
   <div class="panel" id="totals-panel">
     <div class="panel-header">
       <h2>Point of Progress Impact</h2>
-      <div class="panel-sub">Nationwide reach</div>
+      <div class="panel-sub">Nationwide totals</div>
     </div>
     <div class="panel-body" id="totals-body">
       <!-- filled by JS -->
@@ -491,12 +542,6 @@
   <!-- ESC HINT -->
   <div id="esc-hint">Press <strong>ESC</strong> to deselect district</div>
 
-  <!-- INSTALL BANNER -->
-  <div id="install-banner">
-    <span>📲 Install POP Reach</span>
-    <button id="install-btn">Install</button>
-  </div>
-
   <!-- LOADING -->
   <div id="loading">
     <div class="loading-inner">
@@ -506,51 +551,92 @@
   </div>
 
 <script>
-// ─────────────────────────────────────────────
-//  PWA — Register Service Worker
-// ─────────────────────────────────────────────
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('sw.js').then(reg => {
-      console.log('SW registered:', reg.scope);
-    }).catch(err => {
-      console.log('SW registration failed:', err);
-    });
-  });
-}
-
-// ─────────────────────────────────────────────
-//  PWA — Install prompt
-// ─────────────────────────────────────────────
-let deferredPrompt;
-const installBanner = document.getElementById('install-banner');
-const installBtn    = document.getElementById('install-btn');
-
-window.addEventListener('beforeinstallprompt', (e) => {
-  e.preventDefault();
-  deferredPrompt = e;
-  installBanner.classList.add('show');
-});
-
-installBtn.addEventListener('click', async () => {
-  if (!deferredPrompt) return;
-  deferredPrompt.prompt();
-  const { outcome } = await deferredPrompt.userChoice;
-  console.log(`User response: ${outcome}`);
-  deferredPrompt = null;
-  installBanner.classList.remove('show');
-});
-
-window.addEventListener('appinstalled', () => {
-  installBanner.classList.remove('show');
-  console.log('PWA installed');
-});
-
-// ─────────────────────────────────────────────
-//  MAIN APP
-// ─────────────────────────────────────────────
 (async function () {
 
+  // ─────────────────────────────────────────────
+  //  PWA INSTALL — robust detection
+  // ─────────────────────────────────────────────
+  const installBtn = document.getElementById('install-floating-btn');
+
+  function isRunningStandalone() {
+    return (
+      window.matchMedia('(display-mode: standalone)').matches ||
+      window.matchMedia('(display-mode: fullscreen)').matches ||
+      window.matchMedia('(display-mode: minimal-ui)').matches ||
+      ('standalone' in navigator && navigator.standalone === true)
+    );
+  }
+
+  if (!isRunningStandalone()) {
+    let deferredPrompt = null;
+
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      deferredPrompt = e;
+      installBtn.classList.add('visible');
+      console.log('Install prompt available');
+    });
+
+    function isIOS() {
+      return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+    }
+
+    function isSafari() {
+      const ua = navigator.userAgent;
+      return /Safari/.test(ua) && !/Chrome/.test(ua) && !/CriOS/.test(ua) && !/FxiOS/.test(ua);
+    }
+
+    if (isIOS() && isSafari()) {
+      setTimeout(() => {
+        if (!isRunningStandalone()) {
+          installBtn.classList.add('visible');
+        }
+      }, 2000);
+    }
+
+    installBtn.addEventListener('click', async () => {
+      if (deferredPrompt) {
+        deferredPrompt.prompt();
+        const { outcome } = await deferredPrompt.userChoice;
+        console.log('Install outcome:', outcome);
+        deferredPrompt = null;
+        installBtn.classList.remove('visible');
+        if (outcome === 'accepted') return;
+      }
+
+      if (isIOS()) {
+        alert(
+          'To install Point of Progress Reach:\n\n' +
+          '1. Tap the Share button 📤\n' +
+          '2. Scroll down and tap "Add to Home Screen"\n' +
+          '3. Tap "Add" in the top right'
+        );
+      } else {
+        alert(
+          'To install:\n\n' +
+          '• Look for the install icon (⊕) in your browser address bar\n' +
+          '• Or open the browser menu (⋮ or ⋯) and select "Install Point of Progress Reach…"'
+        );
+      }
+    });
+
+    window.addEventListener('appinstalled', () => {
+      console.log('PWA was installed');
+      installBtn.classList.remove('visible');
+      deferredPrompt = null;
+    });
+
+    window.matchMedia('(display-mode: standalone)').addEventListener('change', (e) => {
+      if (e.matches) {
+        installBtn.classList.remove('visible');
+        deferredPrompt = null;
+      }
+    });
+  }
+
+  // ─────────────────────────────────────────────
+  //  DISTRICT LABEL LOOKUP
+  // ─────────────────────────────────────────────
   const DISTRICT_LABELS = {
     "BALAKA":       "BLK",
     "BLANTYRE":     "BT",
@@ -582,6 +668,9 @@ window.addEventListener('appinstalled', () => {
     "ZOMBA":        "ZA",
   };
 
+  // ─────────────────────────────────────────────
+  //  IMPACT COLUMNS
+  // ─────────────────────────────────────────────
   const IMPACT_COLUMNS = [
     { key: "Young people Reached",        label: "Young People Reached", color: "#020244" },
     { key: "Girls",                        label: "Girls",                color: "#6067AF" },
@@ -589,6 +678,10 @@ window.addEventListener('appinstalled', () => {
     { key: "Young Women Can Do it Clubs",  label: "Can Do It Clubs",      color: "#5b9bd5" },
     { key: "Self Help Groups",             label: "Self Help Groups",     color: "#e87750" },
   ];
+
+  // ─────────────────────────────────────────────
+  //  HELPERS
+  // ─────────────────────────────────────────────
 
   function norm(s) {
     return (s || '').trim().toUpperCase().replace(/\s+/g, ' ');
@@ -619,13 +712,21 @@ window.addEventListener('appinstalled', () => {
     return Number(n).toLocaleString();
   }
 
+  // ─────────────────────────────────────────────
+  //  DOM REFS
+  // ─────────────────────────────────────────────
   const mapRoot    = document.getElementById('map-root');
   const totalPanel = document.getElementById('totals-panel');
   const distPanel  = document.getElementById('district-panel');
   const escHint    = document.getElementById('esc-hint');
   const legend     = document.getElementById('legend');
   const loading    = document.getElementById('loading');
+  const header     = document.getElementById('header');
+  const footerLogo = document.getElementById('footer-logo');
 
+  // ─────────────────────────────────────────────
+  //  SVG & PROJECTION SETUP
+  // ─────────────────────────────────────────────
   const svg = d3.select('#map-svg');
   let W = mapRoot.clientWidth, H = mapRoot.clientHeight;
   svg.attr('viewBox', `0 0 ${W} ${H}`);
@@ -642,12 +743,18 @@ window.addEventListener('appinstalled', () => {
     .on('zoom', e => mapGroup.attr('transform', e.transform));
   svg.call(zoom);
 
+  // ─────────────────────────────────────────────
+  //  STATE
+  // ─────────────────────────────────────────────
   let impactData  = {};
   let geoData     = null;
   let districtSel = null;
   let labelSel    = null;
   let selectedId  = null;
 
+  // ─────────────────────────────────────────────
+  //  LOAD DATA
+  // ─────────────────────────────────────────────
   try {
     loading.style.display = 'flex';
 
@@ -688,6 +795,9 @@ window.addEventListener('appinstalled', () => {
     loading.querySelector('p').textContent = 'Error loading data. Check console.';
   }
 
+  // ─────────────────────────────────────────────
+  //  RENDER TOTALS PANEL
+  // ─────────────────────────────────────────────
   function renderTotalsPanel(totals) {
     const body = document.getElementById('totals-body');
     body.innerHTML = '';
@@ -704,6 +814,9 @@ window.addEventListener('appinstalled', () => {
     });
   }
 
+  // ─────────────────────────────────────────────
+  //  DRAW MAP
+  // ─────────────────────────────────────────────
   function drawMap(maxVals) {
     const features = geoData.features || [];
 
@@ -717,10 +830,12 @@ window.addEventListener('appinstalled', () => {
     const lakes     = features.filter(isLake);
     const districts = features.filter(f => !isLake(f));
 
+    // Lakes
     mapGroup.append('g').attr('class', 'lakes')
       .selectAll('path').data(lakes).enter()
       .append('path').attr('class', 'lake').attr('d', path);
 
+    // Districts
     districtSel = mapGroup.append('g').attr('class', 'districts')
       .selectAll('path').data(districts).enter()
       .append('path')
@@ -740,6 +855,7 @@ window.addEventListener('appinstalled', () => {
         else selectDistrict(d);
       });
 
+    // Labels
     labelSel = mapGroup.append('g').attr('class', 'district-labels')
       .selectAll('text').data(districts).enter()
       .append('text')
@@ -782,6 +898,9 @@ window.addEventListener('appinstalled', () => {
     window.__maxVals = maxVals;
   }
 
+  // ─────────────────────────────────────────────
+  //  SELECT DISTRICT
+  // ─────────────────────────────────────────────
   function selectDistrict(feat) {
     selectedId = distId(feat);
 
@@ -806,6 +925,7 @@ window.addEventListener('appinstalled', () => {
 
     labelSel.classed('hidden', true);
     legend.classList.add('hidden');
+    footerLogo.style.display = 'none';
 
     const rawName  = featName(feat);
     const normName = norm(rawName);
@@ -816,6 +936,9 @@ window.addEventListener('appinstalled', () => {
     escHint.classList.add('visible');
   }
 
+  // ─────────────────────────────────────────────
+  //  RENDER DISTRICT PANEL
+  // ─────────────────────────────────────────────
   function renderDistrictPanel(name, data, maxVals) {
     document.getElementById('district-panel-title').textContent = name || 'District';
     const body = document.getElementById('district-panel-body');
@@ -860,6 +983,9 @@ window.addEventListener('appinstalled', () => {
     body.appendChild(bodyDiv);
   }
 
+  // ─────────────────────────────────────────────
+  //  RESET VIEW
+  // ─────────────────────────────────────────────
   function resetView() {
     selectedId = null;
 
@@ -872,6 +998,7 @@ window.addEventListener('appinstalled', () => {
 
     labelSel.classed('hidden', false);
     legend.classList.remove('hidden');
+    footerLogo.style.display = 'flex';
 
     totalPanel.classList.remove('hidden');
     distPanel.classList.remove('visible');
