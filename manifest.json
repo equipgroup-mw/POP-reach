@@ -2,14 +2,15 @@
   "name": "Point of Progress Reach",
   "short_name": "POP Reach",
   "description": "Point of Progress — Impact across Malawi, district overview",
-  "start_url": "/repository/main/index.html",
+  "start_url": "https://equipgroup-mw.github.io/POP-reach/index.html",
+  "scope": "https://equipgroup-mw.github.io/POP-reach/",
   "display": "standalone",
   "background_color": "#020244",
   "theme_color": "#020244",
   "orientation": "any",
   "icons": [
     {
-      "src": "popLOGO.png",
+      "src": "https://equipgroup-mw.github.io/POP-reach/popLOGO.png",
       "sizes": "1254x1254",
       "type": "image/png",
       "purpose": "any maskable"
