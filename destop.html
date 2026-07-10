@@ -1,0 +1,885 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>POP Reach — Point of Progress Impact Map</title>
+  <meta name="description" content="Point of Progress Reach — Impact across Malawi, district overview" />
+  <meta name="theme-color" content="#020244" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="POP Reach" />
+  
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" sizes="32x32" href="popLOGO.png" />
+  <link rel="icon" type="image/png" sizes="16x16" href="popLOGO.png" />
+  <link rel="apple-touch-icon" href="popLOGO.png" />
+  
+  <!-- PWA Manifest -->
+  <link rel="manifest" href="manifest.json" />
+
+  <!-- D3 -->
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Serif+Display&display=swap" rel="stylesheet" />
+
+  <style>
+    :root {
+      --navy:     #020244;
+      --purple:   #6067AF;
+      --teal:     #3CBFA9;
+      --grey:     #d3d6d9;
+      --panel-bg: rgba(255,255,255,0.96);
+      --tv-safe:  2.5%;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; }
+
+    html, body {
+      height: 100%;
+      margin: 0; padding: 0;
+      background: #eceef2;
+      font-family: 'DM Sans', 'Segoe UI', sans-serif;
+      overflow: hidden;
+      color: #111;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── MAP CONTAINER ── */
+    #map-root {
+      position: absolute;
+      inset: 0;
+      overflow: hidden;
+    }
+
+    svg {
+      width: 100%; height: 100%;
+      display: block;
+    }
+
+    /* ── DISTRICT PATHS ── */
+    .district {
+      stroke: #333;
+      stroke-width: 3px;
+      cursor: pointer;
+      transition: stroke-width 120ms ease, opacity 300ms ease;
+      paint-order: stroke;
+    }
+    .district:hover { stroke-width: 1px; }
+    .district.focused {
+      stroke: var(--navy);
+      stroke-width: 2px;
+      filter: drop-shadow(0 8px 14px rgba(60,191,169,0.55));
+    }
+    .district.faded {
+      opacity: 0.12;
+    }
+    .lake {
+      fill: #b8d9ef;
+      stroke: #8eb8d6;
+      stroke-width: 0.5px;
+      pointer-events: none;
+    }
+
+    /* ── DISTRICT LABELS ── */
+    .district-label {
+      font-family: 'DM Sans', sans-serif;
+      font-size: 10px;
+      font-weight: 600;
+      fill: #262626;
+      text-anchor: middle;
+      pointer-events: none;
+      user-select: none;
+      transition: opacity 300ms ease;
+    }
+    .district-label.hidden {
+      opacity: 0;
+    }
+
+    /* ── HEADER ── */
+    .header {
+      position: absolute;
+      top: var(--tv-safe);
+      left: var(--tv-safe);
+      z-index: 80;
+      pointer-events: none;
+    }
+    .header-card {
+      background: var(--panel-bg);
+      border-radius: 10px;
+      padding: 14px 20px;
+      box-shadow: 0 4px 20px rgba(2,2,68,0.12);
+      border-left: 5px solid var(--teal);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .header-logo {
+      width: 40px;
+      height: 40px;
+      border-radius: 8px;
+      flex-shrink: 0;
+    }
+    .header-text h1 {
+      margin: 0;
+      font-family: 'DM Serif Display', serif;
+      font-size: 22px;
+      color: var(--navy);
+      line-height: 1.2;
+    }
+    .header-text p {
+      margin: 3px 0 0;
+      font-size: 12px;
+      color: #666;
+      font-weight: 500;
+    }
+
+    /* ── PANELS (shared base) ── */
+    .panel {
+      position: absolute;
+      background: var(--panel-bg);
+      border-radius: 12px;
+      box-shadow: 0 8px 28px rgba(2,2,68,0.12);
+      overflow: hidden;
+      z-index: 70;
+      transition: opacity 280ms ease, transform 280ms ease, visibility 280ms ease;
+    }
+    .panel-header {
+      background: var(--navy);
+      padding: 14px 18px 12px;
+    }
+    .panel-header h2 {
+      margin: 0;
+      font-family: 'DM Serif Display', serif;
+      font-size: 15px;
+      color: #fff;
+      line-height: 1.3;
+    }
+    .panel-header .panel-sub {
+      margin: 2px 0 0;
+      font-size: 10px;
+      color: rgba(255,255,255,0.65);
+      font-weight: 500;
+    }
+    .panel-body {
+      padding: 12px 14px 14px;
+    }
+
+    /* ── TOTALS PANEL (bottom-left, default view) ── */
+    #totals-panel {
+      bottom: var(--tv-safe);
+      left: var(--tv-safe);
+      width: 360px;
+    }
+    #totals-panel.hidden {
+      opacity: 0;
+      transform: translateY(10px);
+      pointer-events: none;
+      visibility: hidden;
+    }
+    #totals-panel .panel-header h2 {
+      font-size: 20px;
+    }
+    #totals-panel .panel-header .panel-sub {
+      font-size: 12px;
+    }
+    #totals-panel .panel-body {
+      padding: 14px 18px 18px;
+    }
+
+    .stat-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 0;
+      border-bottom: 1px solid rgba(0,0,0,0.06);
+    }
+    .stat-row:last-child { border-bottom: none; }
+    .stat-label {
+      font-size: 14px;
+      font-weight: 600;
+      color: #444;
+      display: flex;
+      align-items: center;
+      gap: 9px;
+    }
+    .stat-dot {
+      width: 11px; height: 11px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .stat-value {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--navy);
+    }
+
+    /* ── DISTRICT PANEL (shown when district selected) ── */
+    #district-panel {
+      top: 50%;
+      left: var(--tv-safe);
+      transform: translateY(-50%);
+      width: 340px;
+      max-height: 85vh;
+      overflow-y: auto;
+      opacity: 0;
+      pointer-events: none;
+      visibility: hidden;
+      transition: opacity 280ms ease, visibility 280ms ease;
+    }
+    #district-panel.visible {
+      opacity: 1;
+      pointer-events: auto;
+      visibility: visible;
+    }
+    #district-panel-title {
+      font-size: 52px !important;
+      line-height: 1.1 !important;
+      font-family: 'DM Serif Display', serif !important;
+      color: #fff !important;
+      margin: 0 !important;
+    }
+    #district-panel-sub {
+      font-size: 13px !important;
+      color: rgba(255,255,255,0.65) !important;
+      margin-top: 6px !important;
+    }
+
+    .district-stat-row {
+      padding: 11px 0;
+      border-bottom: 1px solid rgba(0,0,0,0.06);
+    }
+    .district-stat-row:last-child { border-bottom: none; }
+    .district-stat-label {
+      font-size: 11px;
+      font-weight: 600;
+      color: #888;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 3px;
+    }
+    .district-stat-value {
+      font-size: 26px;
+      font-weight: 700;
+      color: var(--navy);
+      line-height: 1;
+    }
+    .district-stat-bar-track {
+      height: 5px;
+      background: #eee;
+      border-radius: 2px;
+      margin-top: 6px;
+      overflow: hidden;
+    }
+    .district-stat-bar {
+      height: 100%;
+      border-radius: 2px;
+      background: var(--teal);
+      transition: width 600ms ease;
+    }
+    .bar-purple { background: var(--purple); }
+    .bar-teal   { background: var(--teal); }
+    .bar-navy   { background: var(--navy); }
+
+    .not-reached {
+      padding: 24px 18px;
+      text-align: center;
+    }
+    .not-reached .nr-icon {
+      font-size: 36px;
+      margin-bottom: 10px;
+    }
+    .not-reached p {
+      margin: 0;
+      font-size: 14px;
+      color: #888;
+      line-height: 1.6;
+    }
+    .not-reached strong {
+      display: block;
+      color: var(--navy);
+      font-size: 15px;
+      margin-bottom: 6px;
+    }
+
+    /* ── LEGEND ── */
+    #legend {
+      position: absolute;
+      bottom: var(--tv-safe);
+      right: var(--tv-safe);
+      background: var(--panel-bg);
+      border-radius: 10px;
+      padding: 12px 16px;
+      box-shadow: 0 4px 18px rgba(2,2,68,0.10);
+      z-index: 70;
+      font-size: 12px;
+      transition: opacity 300ms ease, visibility 300ms ease;
+    }
+    #legend.hidden {
+      opacity: 0;
+      visibility: hidden;
+    }
+    .legend-title {
+      font-weight: 700;
+      color: var(--navy);
+      margin-bottom: 8px;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 6px;
+      color: #555;
+      font-weight: 500;
+    }
+    .legend-item:last-child { margin-bottom: 0; }
+    .legend-swatch {
+      width: 16px; height: 16px;
+      border-radius: 4px;
+      flex-shrink: 0;
+    }
+
+    /* ── ESC HINT ── */
+    #esc-hint {
+      position: absolute;
+      top: var(--tv-safe);
+      right: var(--tv-safe);
+      background: var(--panel-bg);
+      border-radius: 8px;
+      padding: 9px 16px;
+      font-size: 12px;
+      color: #888;
+      box-shadow: 0 3px 12px rgba(0,0,0,0.08);
+      z-index: 70;
+      opacity: 0;
+      pointer-events: none;
+      visibility: hidden;
+      transition: opacity 280ms ease, visibility 280ms ease;
+    }
+    #esc-hint.visible {
+      opacity: 1;
+      pointer-events: auto;
+      visibility: visible;
+    }
+
+    /* ── LOADING ── */
+    #loading {
+      position: absolute;
+      inset: 0;
+      background: rgba(236,238,242,0.92);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 200;
+    }
+    .loading-inner {
+      background: #fff;
+      padding: 28px 36px;
+      border-radius: 14px;
+      box-shadow: 0 8px 28px rgba(2,2,68,0.12);
+      text-align: center;
+    }
+    .spinner {
+      width: 36px; height: 36px;
+      border: 3px solid #eee;
+      border-top-color: var(--teal);
+      border-radius: 50%;
+      animation: spin 0.9s linear infinite;
+      margin: 0 auto 14px;
+    }
+    .loading-inner p {
+      margin: 0;
+      font-weight: 600;
+      color: var(--navy);
+      font-size: 14px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── INSTALL PROMPT ── */
+    #install-banner {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--navy);
+      color: #fff;
+      padding: 12px 24px;
+      border-radius: 30px;
+      font-weight: 600;
+      font-size: 14px;
+      z-index: 300;
+      display: none;
+      align-items: center;
+      gap: 12px;
+      box-shadow: 0 8px 24px rgba(2,2,68,0.3);
+      cursor: pointer;
+    }
+    #install-banner.show { display: flex; }
+    #install-banner button {
+      background: var(--teal);
+      color: #fff;
+      border: none;
+      padding: 6px 16px;
+      border-radius: 20px;
+      font-weight: 700;
+      cursor: pointer;
+      font-family: inherit;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- HEADER -->
+  <div class="header">
+    <div class="header-card">
+      <img src="popLOGO.png" alt="POP Reach" class="header-logo" />
+      <div class="header-text">
+        <h1>Point of Progress</h1>
+        <p>Impact across Malawi - District overview</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- MAP ROOT -->
+  <div id="map-root">
+    <svg id="map-svg" preserveAspectRatio="xMidYMid meet"></svg>
+  </div>
+
+  <!-- TOTALS PANEL -->
+  <div class="panel" id="totals-panel">
+    <div class="panel-header">
+      <h2>Point of Progress Impact</h2>
+      <div class="panel-sub">Nationwide reach</div>
+    </div>
+    <div class="panel-body" id="totals-body">
+      <!-- filled by JS -->
+    </div>
+  </div>
+
+  <!-- DISTRICT PANEL -->
+  <div class="panel" id="district-panel">
+    <div class="panel-header">
+      <h2 id="district-panel-title">District</h2>
+      <div class="panel-sub" id="district-panel-sub">Impact data</div>
+    </div>
+    <div id="district-panel-body">
+      <!-- filled by JS -->
+    </div>
+  </div>
+
+  <!-- LEGEND -->
+  <div id="legend">
+    <div class="legend-title">Map Key</div>
+    <div class="legend-item">
+      <div class="legend-swatch" style="background:var(--purple)"></div>
+      Districts with impact
+    </div>
+    <div class="legend-item">
+      <div class="legend-swatch" style="background:var(--grey)"></div>
+      Not yet reached
+    </div>
+    <div class="legend-item">
+      <div class="legend-swatch" style="background:var(--teal)"></div>
+      Hover / selected
+    </div>
+  </div>
+
+  <!-- ESC HINT -->
+  <div id="esc-hint">Press <strong>ESC</strong> to deselect district</div>
+
+  <!-- INSTALL BANNER -->
+  <div id="install-banner">
+    <span>📲 Install POP Reach</span>
+    <button id="install-btn">Install</button>
+  </div>
+
+  <!-- LOADING -->
+  <div id="loading">
+    <div class="loading-inner">
+      <div class="spinner"></div>
+      <p>Loading impact data…</p>
+    </div>
+  </div>
+
+<script>
+// ─────────────────────────────────────────────
+//  PWA — Register Service Worker
+// ─────────────────────────────────────────────
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').then(reg => {
+      console.log('SW registered:', reg.scope);
+    }).catch(err => {
+      console.log('SW registration failed:', err);
+    });
+  });
+}
+
+// ─────────────────────────────────────────────
+//  PWA — Install prompt
+// ─────────────────────────────────────────────
+let deferredPrompt;
+const installBanner = document.getElementById('install-banner');
+const installBtn    = document.getElementById('install-btn');
+
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+  installBanner.classList.add('show');
+});
+
+installBtn.addEventListener('click', async () => {
+  if (!deferredPrompt) return;
+  deferredPrompt.prompt();
+  const { outcome } = await deferredPrompt.userChoice;
+  console.log(`User response: ${outcome}`);
+  deferredPrompt = null;
+  installBanner.classList.remove('show');
+});
+
+window.addEventListener('appinstalled', () => {
+  installBanner.classList.remove('show');
+  console.log('PWA installed');
+});
+
+// ─────────────────────────────────────────────
+//  MAIN APP
+// ─────────────────────────────────────────────
+(async function () {
+
+  const DISTRICT_LABELS = {
+    "BALAKA":       "BLK",
+    "BLANTYRE":     "BT",
+    "CHIKWAWA":     "CK",
+    "CHIRADZULU":   "CR",
+    "CHITIPA":      "CP",
+    "DEDZA":        "DZ",
+    "DOWA":         "DA",
+    "KARONGA":      "KA",
+    "KASUNGU":      "KU",
+    "LIKOMA":       "LK",
+    "LILONGWE":     "LL",
+    "MACHINGA":     "MA",
+    "MANGOCHI":     "MHG",
+    "MCHINJI":      "MC",
+    "MULANJE":      "MU",
+    "MWANZA":       "MW",
+    "MZIMBA":       "MZ",
+    "NENO":         "NN",
+    "NKHATA BAY":   "NB",
+    "NKHOTAKOTA":   "KK",
+    "NSANJE":       "NE",
+    "NTCHEU":       "NU",
+    "NTCHISI":      "NS",
+    "PHALOMBE":     "PE",
+    "RUMPHI":       "RU",
+    "SALIMA":       "SA",
+    "THYOLO":       "TO",
+    "ZOMBA":        "ZA",
+  };
+
+  const IMPACT_COLUMNS = [
+    { key: "Young people Reached",        label: "Young People Reached", color: "#020244" },
+    { key: "Girls",                        label: "Girls",                color: "#6067AF" },
+    { key: "Boys",                         label: "Boys",                 color: "#3CBFA9" },
+    { key: "Young Women Can Do it Clubs",  label: "Can Do It Clubs",      color: "#5b9bd5" },
+    { key: "Self Help Groups",             label: "Self Help Groups",     color: "#e87750" },
+  ];
+
+  function norm(s) {
+    return (s || '').trim().toUpperCase().replace(/\s+/g, ' ');
+  }
+
+  function toTitleCase(s) {
+    return s.trim().replace(/\w\S*/g, w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase());
+  }
+
+  function featName(feat) {
+    const p = feat.properties || {};
+    for (const k of ['NAME_1','NAME','DISTRICT','Dist_Name','DISTRICT NAME','DISTNAME','DIST_NAME','district','District','name']) {
+      if (p[k] && typeof p[k] === 'string' && p[k].trim()) return p[k];
+    }
+    return '';
+  }
+
+  function distId(d) {
+    const p = d.properties || {};
+    return p.id || p.NAME_1 || p.DISTRICT || p.name || JSON.stringify(p).slice(0, 40);
+  }
+
+  function districtFill(d) {
+    return impactData[norm(featName(d))] ? '#6067AF' : '#d3d6d9';
+  }
+
+  function fmt(n) {
+    return Number(n).toLocaleString();
+  }
+
+  const mapRoot    = document.getElementById('map-root');
+  const totalPanel = document.getElementById('totals-panel');
+  const distPanel  = document.getElementById('district-panel');
+  const escHint    = document.getElementById('esc-hint');
+  const legend     = document.getElementById('legend');
+  const loading    = document.getElementById('loading');
+
+  const svg = d3.select('#map-svg');
+  let W = mapRoot.clientWidth, H = mapRoot.clientHeight;
+  svg.attr('viewBox', `0 0 ${W} ${H}`);
+  const mapGroup = svg.append('g').attr('id', 'mapGroup');
+
+  const projection = d3.geoMercator()
+    .center([34.3015, -13.2543])
+    .scale(Math.min(W, H) * 6.5)
+    .translate([W / 2, H / 2]);
+  const path = d3.geoPath().projection(projection);
+
+  const zoom = d3.zoom()
+    .scaleExtent([1, 14])
+    .on('zoom', e => mapGroup.attr('transform', e.transform));
+  svg.call(zoom);
+
+  let impactData  = {};
+  let geoData     = null;
+  let districtSel = null;
+  let labelSel    = null;
+  let selectedId  = null;
+
+  try {
+    loading.style.display = 'flex';
+
+    const [geo, csvRows] = await Promise.all([
+      d3.json('malawi_districts.geojson'),
+      d3.csv('data.csv')
+    ]);
+
+    geoData = geo;
+
+    const totals = {};
+    IMPACT_COLUMNS.forEach(c => totals[c.key] = 0);
+
+    csvRows.forEach(row => {
+      const distKey = norm(row['District'] || row['DISTRICT'] || '');
+      if (!distKey) return;
+      const record = {};
+      IMPACT_COLUMNS.forEach(c => {
+        const raw = (row[c.key] || '0').toString().replace(/,/g, '').trim();
+        record[c.key] = parseInt(raw, 10) || 0;
+        totals[c.key] += record[c.key];
+      });
+      impactData[distKey] = record;
+    });
+
+    const maxVals = {};
+    IMPACT_COLUMNS.forEach(c => {
+      maxVals[c.key] = Math.max(...Object.values(impactData).map(d => d[c.key] || 0));
+    });
+
+    renderTotalsPanel(totals);
+    drawMap(maxVals);
+
+    loading.style.display = 'none';
+
+  } catch (err) {
+    console.error('Failed to load data:', err);
+    loading.querySelector('p').textContent = 'Error loading data. Check console.';
+  }
+
+  function renderTotalsPanel(totals) {
+    const body = document.getElementById('totals-body');
+    body.innerHTML = '';
+    IMPACT_COLUMNS.forEach(col => {
+      const row = document.createElement('div');
+      row.className = 'stat-row';
+      row.innerHTML = `
+        <span class="stat-label">
+          <span class="stat-dot" style="background:${col.color}"></span>
+          ${col.label}
+        </span>
+        <span class="stat-value">${fmt(totals[col.key])}</span>`;
+      body.appendChild(row);
+    });
+  }
+
+  function drawMap(maxVals) {
+    const features = geoData.features || [];
+
+    function isLake(f) {
+      const p = f.properties || {};
+      const t = (p.TYPE || p.type || '').toLowerCase();
+      const n = (p.NAME || p.NAME_1 || p.name || '').toLowerCase();
+      return t.includes('lake') || n.includes('lake');
+    }
+
+    const lakes     = features.filter(isLake);
+    const districts = features.filter(f => !isLake(f));
+
+    mapGroup.append('g').attr('class', 'lakes')
+      .selectAll('path').data(lakes).enter()
+      .append('path').attr('class', 'lake').attr('d', path);
+
+    districtSel = mapGroup.append('g').attr('class', 'districts')
+      .selectAll('path').data(districts).enter()
+      .append('path')
+      .attr('class', 'district')
+      .attr('d', path)
+      .attr('fill', d => districtFill(d))
+      .on('mouseover', function (event, d) {
+        if (selectedId && selectedId !== distId(d)) return;
+        if (selectedId !== distId(d)) d3.select(this).attr('fill', '#3CBFA9');
+      })
+      .on('mouseout', function (event, d) {
+        if (selectedId !== distId(d)) d3.select(this).attr('fill', districtFill(d));
+      })
+      .on('click', function (event, d) {
+        event.stopPropagation();
+        if (selectedId === distId(d)) resetView();
+        else selectDistrict(d);
+      });
+
+    labelSel = mapGroup.append('g').attr('class', 'district-labels')
+      .selectAll('text').data(districts).enter()
+      .append('text')
+      .attr('class', 'district-label')
+      .attr('transform', d => {
+        const [cx, cy] = path.centroid(d);
+        return `translate(${cx},${cy})`;
+      })
+      .attr('dy', '0.35em')
+      .text(d => {
+        const normName  = norm(featName(d));
+        const hasImpact = !!impactData[normName];
+        if (hasImpact) return toTitleCase(featName(d));
+        return DISTRICT_LABELS[normName] || normName.substring(0, 3);
+      });
+
+    svg.on('click', event => {
+      if (event.target.tagName.toLowerCase() === 'svg') resetView();
+    });
+
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape') resetView();
+    });
+
+    let resizeTimeout;
+    window.addEventListener('resize', () => {
+      clearTimeout(resizeTimeout);
+      resizeTimeout = setTimeout(() => {
+        W = mapRoot.clientWidth; H = mapRoot.clientHeight;
+        svg.attr('viewBox', `0 0 ${W} ${H}`);
+        projection.scale(Math.min(W, H) * 6.5).translate([W / 2, H / 2]);
+        svg.selectAll('path').attr('d', path);
+        labelSel.attr('transform', d => {
+          const [cx, cy] = path.centroid(d);
+          return `translate(${cx},${cy})`;
+        });
+      }, 250);
+    });
+
+    window.__maxVals = maxVals;
+  }
+
+  function selectDistrict(feat) {
+    selectedId = distId(feat);
+
+    const [[x0, y0], [x1, y1]] = path.bounds(feat);
+    const dx = x1 - x0, dy = y1 - y0;
+    const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
+    const scale = Math.max(1, Math.min(12, 0.9 / Math.max(dx / (W * 0.6), dy / H)));
+    const tx = W * 0.65 - scale * cx;
+    const ty = H / 2    - scale * cy;
+
+    svg.transition().duration(2400).call(
+      zoom.transform,
+      d3.zoomIdentity.translate(tx, ty).scale(scale)
+    );
+
+    districtSel
+      .classed('faded',   d => distId(d) !== selectedId)
+      .classed('focused', d => distId(d) === selectedId)
+      .filter(d => distId(d) === selectedId)
+      .attr('fill', '#3CBFA9')
+      .raise();
+
+    labelSel.classed('hidden', true);
+    legend.classList.add('hidden');
+
+    const rawName  = featName(feat);
+    const normName = norm(rawName);
+    renderDistrictPanel(rawName, impactData[normName], window.__maxVals);
+
+    totalPanel.classList.add('hidden');
+    distPanel.classList.add('visible');
+    escHint.classList.add('visible');
+  }
+
+  function renderDistrictPanel(name, data, maxVals) {
+    document.getElementById('district-panel-title').textContent = name || 'District';
+    const body = document.getElementById('district-panel-body');
+
+    if (!data) {
+      document.getElementById('district-panel-sub').textContent = 'No impact recorded';
+      body.innerHTML = `
+        <div class="not-reached">
+          <div class="nr-icon">🗺️</div>
+          <p>
+            <strong>Area not reached yet</strong>
+            This district has not been part of the programme so far.
+          </p>
+        </div>`;
+      return;
+    }
+
+    document.getElementById('district-panel-sub').textContent = 'Programme impact breakdown';
+    body.innerHTML = '';
+
+    const bodyDiv = document.createElement('div');
+    bodyDiv.className = 'panel-body';
+
+    const barClasses = ['bar-navy', 'bar-purple', 'bar-teal', 'bar-purple', 'bar-teal'];
+
+    IMPACT_COLUMNS.forEach((col, i) => {
+      const val = data[col.key] || 0;
+      const max = maxVals ? (maxVals[col.key] || 1) : 1;
+      const pct = Math.round((val / max) * 100);
+
+      const row = document.createElement('div');
+      row.className = 'district-stat-row';
+      row.innerHTML = `
+        <div class="district-stat-label">${col.label}</div>
+        <div class="district-stat-value">${fmt(val)}</div>
+        <div class="district-stat-bar-track">
+          <div class="district-stat-bar ${barClasses[i]}" style="width:${pct}%"></div>
+        </div>`;
+      bodyDiv.appendChild(row);
+    });
+
+    body.appendChild(bodyDiv);
+  }
+
+  function resetView() {
+    selectedId = null;
+
+    svg.transition().duration(1800).call(zoom.transform, d3.zoomIdentity);
+
+    districtSel
+      .classed('faded', false)
+      .classed('focused', false)
+      .attr('fill', d => districtFill(d));
+
+    labelSel.classed('hidden', false);
+    legend.classList.remove('hidden');
+
+    totalPanel.classList.remove('hidden');
+    distPanel.classList.remove('visible');
+    escHint.classList.remove('visible');
+  }
+
+})();
+</script>
+
+</body>
+</html>
