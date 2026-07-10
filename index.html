@@ -3,7 +3,20 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Point of Progress — Impact Map</title>
+  <title>POP Reach — Point of Progress Impact Map</title>
+  <meta name="description" content="Point of Progress Reach — Impact across Malawi, district overview" />
+  <meta name="theme-color" content="#020244" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="POP Reach" />
+  
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" sizes="32x32" href="popLOGO.png" />
+  <link rel="icon" type="image/png" sizes="16x16" href="popLOGO.png" />
+  <link rel="apple-touch-icon" href="popLOGO.png" />
+  
+  <!-- PWA Manifest -->
+  <link rel="manifest" href="manifest.json" />
 
   <!-- D3 -->
   <script src="https://d3js.org/d3.v7.min.js"></script>
@@ -40,7 +53,6 @@
       overflow: hidden;
     }
 
-    /* ✅ FIX: closing brace was missing here */
     svg {
       width: 100%; height: 100%;
       display: block;
@@ -99,15 +111,24 @@
       padding: 14px 20px;
       box-shadow: 0 4px 20px rgba(2,2,68,0.12);
       border-left: 5px solid var(--teal);
+      display: flex;
+      align-items: center;
+      gap: 12px;
     }
-    .header-card h1 {
+    .header-logo {
+      width: 40px;
+      height: 40px;
+      border-radius: 8px;
+      flex-shrink: 0;
+    }
+    .header-text h1 {
       margin: 0;
       font-family: 'DM Serif Display', serif;
       font-size: 22px;
       color: var(--navy);
       line-height: 1.2;
     }
-    .header-card p {
+    .header-text p {
       margin: 3px 0 0;
       font-size: 12px;
       color: #666;
@@ -212,7 +233,6 @@
       pointer-events: auto;
       visibility: visible;
     }
-    /* District name in panel header — large and prominent */
     #district-panel-title {
       font-size: 52px !important;
       line-height: 1.1 !important;
@@ -262,7 +282,6 @@
     .bar-teal   { background: var(--teal); }
     .bar-navy   { background: var(--navy); }
 
-    /* Not reached message */
     .not-reached {
       padding: 24px 18px;
       text-align: center;
@@ -379,6 +398,37 @@
       font-size: 14px;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── INSTALL PROMPT ── */
+    #install-banner {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--navy);
+      color: #fff;
+      padding: 12px 24px;
+      border-radius: 30px;
+      font-weight: 600;
+      font-size: 14px;
+      z-index: 300;
+      display: none;
+      align-items: center;
+      gap: 12px;
+      box-shadow: 0 8px 24px rgba(2,2,68,0.3);
+      cursor: pointer;
+    }
+    #install-banner.show { display: flex; }
+    #install-banner button {
+      background: var(--teal);
+      color: #fff;
+      border: none;
+      padding: 6px 16px;
+      border-radius: 20px;
+      font-weight: 700;
+      cursor: pointer;
+      font-family: inherit;
+    }
   </style>
 </head>
 <body>
@@ -386,8 +436,11 @@
   <!-- HEADER -->
   <div class="header">
     <div class="header-card">
-      <h1>Point of Progress</h1>
-      <p>Impact across Malawi — District overview</p>
+      <img src="popLOGO.png" alt="POP Reach" class="header-logo" />
+      <div class="header-text">
+        <h1>POP Reach</h1>
+        <p>Point of Progress — Impact across Malawi</p>
+      </div>
     </div>
   </div>
 
@@ -399,7 +452,7 @@
   <!-- TOTALS PANEL -->
   <div class="panel" id="totals-panel">
     <div class="panel-header">
-      <h2>Point of Progress Impact</h2>
+      <h2>POP Reach Impact</h2>
       <div class="panel-sub">Nationwide totals</div>
     </div>
     <div class="panel-body" id="totals-body">
@@ -438,6 +491,12 @@
   <!-- ESC HINT -->
   <div id="esc-hint">Press <strong>ESC</strong> to deselect district</div>
 
+  <!-- INSTALL BANNER -->
+  <div id="install-banner">
+    <span>📲 Install POP Reach</span>
+    <button id="install-btn">Install</button>
+  </div>
+
   <!-- LOADING -->
   <div id="loading">
     <div class="loading-inner">
@@ -447,14 +506,51 @@
   </div>
 
 <script>
+// ─────────────────────────────────────────────
+//  PWA — Register Service Worker
+// ─────────────────────────────────────────────
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').then(reg => {
+      console.log('SW registered:', reg.scope);
+    }).catch(err => {
+      console.log('SW registration failed:', err);
+    });
+  });
+}
+
+// ─────────────────────────────────────────────
+//  PWA — Install prompt
+// ─────────────────────────────────────────────
+let deferredPrompt;
+const installBanner = document.getElementById('install-banner');
+const installBtn    = document.getElementById('install-btn');
+
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+  installBanner.classList.add('show');
+});
+
+installBtn.addEventListener('click', async () => {
+  if (!deferredPrompt) return;
+  deferredPrompt.prompt();
+  const { outcome } = await deferredPrompt.userChoice;
+  console.log(`User response: ${outcome}`);
+  deferredPrompt = null;
+  installBanner.classList.remove('show');
+});
+
+window.addEventListener('appinstalled', () => {
+  installBanner.classList.remove('show');
+  console.log('PWA installed');
+});
+
+// ─────────────────────────────────────────────
+//  MAIN APP
+// ─────────────────────────────────────────────
 (async function () {
 
-  // ─────────────────────────────────────────────
-  //  DISTRICT LABEL LOOKUP
-  //  Districts WITH impact → show full name automatically (title case)
-  //  Districts WITHOUT impact → show abbreviation from this table
-  //  Edit any value here to fully customise a label
-  // ─────────────────────────────────────────────
   const DISTRICT_LABELS = {
     "BALAKA":       "BLK",
     "BLANTYRE":     "BT",
@@ -486,10 +582,6 @@
     "ZOMBA":        "ZA",
   };
 
-  // ─────────────────────────────────────────────
-  //  IMPACT COLUMNS
-  //  Edit label/color to customise the panel display
-  // ─────────────────────────────────────────────
   const IMPACT_COLUMNS = [
     { key: "Young people Reached",        label: "Young People Reached", color: "#020244" },
     { key: "Girls",                        label: "Girls",                color: "#6067AF" },
@@ -497,10 +589,6 @@
     { key: "Young Women Can Do it Clubs",  label: "Can Do It Clubs",      color: "#5b9bd5" },
     { key: "Self Help Groups",             label: "Self Help Groups",     color: "#e87750" },
   ];
-
-  // ─────────────────────────────────────────────
-  //  HELPERS
-  // ─────────────────────────────────────────────
 
   function norm(s) {
     return (s || '').trim().toUpperCase().replace(/\s+/g, ' ');
@@ -531,9 +619,6 @@
     return Number(n).toLocaleString();
   }
 
-  // ─────────────────────────────────────────────
-  //  DOM REFS
-  // ─────────────────────────────────────────────
   const mapRoot    = document.getElementById('map-root');
   const totalPanel = document.getElementById('totals-panel');
   const distPanel  = document.getElementById('district-panel');
@@ -541,9 +626,6 @@
   const legend     = document.getElementById('legend');
   const loading    = document.getElementById('loading');
 
-  // ─────────────────────────────────────────────
-  //  SVG & PROJECTION SETUP
-  // ─────────────────────────────────────────────
   const svg = d3.select('#map-svg');
   let W = mapRoot.clientWidth, H = mapRoot.clientHeight;
   svg.attr('viewBox', `0 0 ${W} ${H}`);
@@ -560,18 +642,12 @@
     .on('zoom', e => mapGroup.attr('transform', e.transform));
   svg.call(zoom);
 
-  // ─────────────────────────────────────────────
-  //  STATE
-  // ─────────────────────────────────────────────
   let impactData  = {};
   let geoData     = null;
   let districtSel = null;
   let labelSel    = null;
   let selectedId  = null;
 
-  // ─────────────────────────────────────────────
-  //  LOAD DATA
-  // ─────────────────────────────────────────────
   try {
     loading.style.display = 'flex';
 
@@ -612,9 +688,6 @@
     loading.querySelector('p').textContent = 'Error loading data. Check console.';
   }
 
-  // ─────────────────────────────────────────────
-  //  RENDER TOTALS PANEL
-  // ─────────────────────────────────────────────
   function renderTotalsPanel(totals) {
     const body = document.getElementById('totals-body');
     body.innerHTML = '';
@@ -631,9 +704,6 @@
     });
   }
 
-  // ─────────────────────────────────────────────
-  //  DRAW MAP
-  // ─────────────────────────────────────────────
   function drawMap(maxVals) {
     const features = geoData.features || [];
 
@@ -647,12 +717,10 @@
     const lakes     = features.filter(isLake);
     const districts = features.filter(f => !isLake(f));
 
-    // Lakes
     mapGroup.append('g').attr('class', 'lakes')
       .selectAll('path').data(lakes).enter()
       .append('path').attr('class', 'lake').attr('d', path);
 
-    // Districts
     districtSel = mapGroup.append('g').attr('class', 'districts')
       .selectAll('path').data(districts).enter()
       .append('path')
@@ -672,9 +740,6 @@
         else selectDistrict(d);
       });
 
-    // Labels
-    // — Districts WITH impact → full title-case name
-    // — Districts WITHOUT impact → abbreviation from DISTRICT_LABELS
     labelSel = mapGroup.append('g').attr('class', 'district-labels')
       .selectAll('text').data(districts).enter()
       .append('text')
@@ -717,9 +782,6 @@
     window.__maxVals = maxVals;
   }
 
-  // ─────────────────────────────────────────────
-  //  SELECT DISTRICT
-  // ─────────────────────────────────────────────
   function selectDistrict(feat) {
     selectedId = distId(feat);
 
@@ -754,9 +816,6 @@
     escHint.classList.add('visible');
   }
 
-  // ─────────────────────────────────────────────
-  //  RENDER DISTRICT PANEL
-  // ─────────────────────────────────────────────
   function renderDistrictPanel(name, data, maxVals) {
     document.getElementById('district-panel-title').textContent = name || 'District';
     const body = document.getElementById('district-panel-body');
@@ -801,9 +860,6 @@
     body.appendChild(bodyDiv);
   }
 
-  // ─────────────────────────────────────────────
-  //  RESET VIEW
-  // ─────────────────────────────────────────────
   function resetView() {
     selectedId = null;
 
