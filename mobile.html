@@ -1,0 +1,1263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>POP Reach — Mobile</title>
+  <meta name="description" content="Point of Progress Reach — Impact across Malawi" />
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#020244">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="POP Reach">
+  <link rel="icon" href="popLOGO.png" type="image/png">
+  <link rel="apple-touch-icon" href="popLOGO.png">
+
+  <!-- D3 -->
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Serif+Display&display=swap" rel="stylesheet" />
+
+  <style>
+    /* ---------- Base Styles ---------- */
+    :root {
+      --navy:     #020244;
+      --purple:   #6067AF;
+      --teal:     #3CBFA9;
+      --grey:     #d3d6d9;
+      --mobile-padding: 14px;
+    }
+
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    html, body {
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      background: #eceef2;
+      font-family: 'DM Sans', 'Segoe UI', Roboto, Arial, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      overflow: hidden;
+      color: #111;
+      touch-action: manipulation;
+      transform: translateZ(0);
+      -webkit-transform: translateZ(0);
+    }
+
+    /* ---------- Header ---------- */
+    .header {
+      position: absolute;
+      top: 16px;
+      left: var(--mobile-padding);
+      right: var(--mobile-padding);
+      z-index: 75;
+      pointer-events: none;
+      text-align: center;
+    }
+    
+    .header.hidden {
+      opacity: 0;
+      visibility: hidden;
+    }
+    
+    .header-card {
+      margin: 0 auto;
+      padding: 10px 16px;
+      background: rgba(255,255,255,0.92);
+      border-radius: 10px;
+      box-shadow: 0 2px 12px rgba(2,2,68,0.10);
+      border-left: 4px solid var(--teal);
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      max-width: 100%;
+      pointer-events: auto;
+    }
+    
+    .header-logo {
+      width: 32px;
+      height: 32px;
+      border-radius: 6px;
+      flex-shrink: 0;
+    }
+    
+    .header-text {
+      text-align: left;
+      line-height: 1.2;
+    }
+    
+    .header-text h1 {
+      margin: 0;
+      font-family: 'DM Serif Display', serif;
+      font-size: 18px;
+      color: var(--navy);
+      font-weight: 700;
+    }
+    
+    .header-text p {
+      margin: 1px 0 0;
+      font-size: 10px;
+      color: #666;
+      font-weight: 500;
+    }
+
+    /* ---------- Footer Logo ---------- */
+    .powered-by-footer {
+      position: absolute;
+      bottom: 18px;
+      left: var(--mobile-padding);
+      z-index: 60;
+      pointer-events: none;
+      padding: 6px 10px;
+      background: rgba(255, 255, 255, 0.8);
+      border-radius: 8px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+    }
+
+    .powered-by-text {
+      font-size: 10px;
+      color: #888;
+      font-weight: 500;
+      margin: 0;
+    }
+
+    .powered-by-logo {
+      height: 36px;
+      width: auto;
+      display: block;
+      margin: 0;
+    }
+
+    /* ---------- Map Container ---------- */
+    #map-root {
+      position: absolute;
+      width: 100vw;
+      height: 100vh;
+      left: 0;
+      top: 0;
+      overflow: hidden;
+      background: #eceef2;
+    }
+    
+    svg { 
+      width: 100%; 
+      height: 100%; 
+      display: block;
+      overflow: hidden;
+    }
+
+    /* ---------- District & Lake Styles ---------- */
+    .district {
+      stroke: #333;
+      stroke-width: 2px;
+      cursor: pointer;
+      paint-order: stroke;
+      outline: none !important;
+      -webkit-tap-highlight-color: transparent !important;
+      pointer-events: none;
+      vector-effect: non-scaling-stroke;
+      stroke-linejoin: round;
+      stroke-linecap: round;
+      shape-rendering: crispEdges;
+    }
+    
+    /* Invisible click targets */
+    .district-click-target {
+      fill: transparent !important;
+      stroke: transparent !important;
+      pointer-events: all !important;
+      cursor: pointer !important;
+      outline: none !important;
+      -webkit-tap-highlight-color: transparent !important;
+      vector-effect: non-scaling-stroke;
+      stroke-width: 6px !important;
+    }
+
+    .district-click-likoma {
+      stroke-width: 20px !important;
+    }
+
+    .district-click-target:focus, .district-click-target:active {
+      outline: none !important;
+      box-shadow: none !important;
+    }
+    
+    .lake {
+      fill: #b8d9ef;
+      stroke: #8eb8d6;
+      stroke-width: 0.4px;
+      vector-effect: non-scaling-stroke;
+    }
+    
+    .faded { opacity: 0.12; }
+    
+    .focused { 
+      stroke-width: 3px;
+      stroke: var(--navy);
+      filter: drop-shadow(0 4px 8px rgba(60,191,169,0.45));
+    }
+
+    /* District labels */
+    .district-label {
+      font-size: 9px;
+      font-weight: 600;
+      fill: #262626;
+      text-anchor: middle;
+      pointer-events: none;
+      user-select: none;
+      paint-order: stroke;
+      stroke: white;
+      stroke-width: 2px;
+      stroke-opacity: 0.8;
+      will-change: transform;
+      transform: translateZ(0);
+    }
+    
+    .district-label.hidden {
+      display: none;
+    }
+
+    /* ---------- Control Buttons ---------- */
+    .control-buttons {
+      position: absolute;
+      right: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      z-index: 70;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    
+    .control-button-wrapper {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+    }
+    
+    .button-label {
+      font-size: 8px;
+      color: #444;
+      text-align: center;
+      font-weight: 500;
+    }
+    
+    .control-button {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.92);
+      border: none;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    
+    .control-button:active {
+      transform: scale(0.92);
+      background: var(--navy);
+      color: white;
+    }
+
+    /* ---------- PWA Install Button ---------- */
+    .pwa-install-button {
+      position: fixed;
+      bottom: 24px;
+      right: 16px;
+      z-index: 1000;
+      background-color: var(--navy);
+      color: white;
+      border: none;
+      border-radius: 50px;
+      padding: 12px 20px;
+      font-size: 14px;
+      font-weight: 600;
+      box-shadow: 0 4px 14px rgba(2,2,68,0.3);
+      cursor: pointer;
+      display: none;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.3s ease;
+      font-family: inherit;
+    }
+
+    .pwa-install-button.visible {
+      display: flex;
+    }
+
+    /* ---------- Panels ---------- */
+    .info-panel, .stats-panel {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      height: 0;
+      background: #ffffff;
+      border-top: 1px solid rgba(0,0,0,0.08);
+      border-radius: 16px 16px 0 0;
+      z-index: 90;
+      overflow: hidden;
+      padding: 0;
+      transform: translateY(100%);
+      transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    
+    .info-panel.visible, .stats-panel.visible { 
+      height: 52vh;
+      transform: translateY(0);
+    }
+    
+    .panel-header {
+      position: sticky;
+      top: 0;
+      background: white;
+      z-index: 10;
+      padding: 14px 14px 8px;
+      border-bottom: 1px solid #eee;
+    }
+    
+    .panel-content {
+      height: calc(100% - 56px);
+      overflow-y: auto;
+      padding: 0 14px 14px;
+      -webkit-overflow-scrolling: touch;
+    }
+    
+    .panel-title { 
+      color: var(--navy); 
+      font-weight: 700; 
+      margin-bottom: 4px; 
+      font-size: 22px;
+      font-family: 'DM Serif Display', serif;
+    }
+    
+    .panel-subtitle { 
+      color: #666; 
+      font-size: 14px;
+      font-weight: 500;
+    }
+
+    /* Impact stat rows */
+    .impact-stat-row {
+      padding: 12px 0;
+      border-bottom: 1px solid rgba(0,0,0,0.05);
+    }
+    .impact-stat-row:last-child { border-bottom: none; }
+    
+    .impact-stat-label {
+      font-size: 11px;
+      font-weight: 600;
+      color: #888;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 4px;
+    }
+    
+    .impact-stat-value {
+      font-size: 28px;
+      font-weight: 700;
+      color: var(--navy);
+      line-height: 1;
+      margin-bottom: 6px;
+    }
+    
+    .impact-stat-bar-track {
+      height: 6px;
+      background: #eee;
+      border-radius: 3px;
+      overflow: hidden;
+    }
+    
+    .impact-stat-bar {
+      height: 100%;
+      border-radius: 3px;
+      transition: width 600ms ease;
+    }
+    
+    .bar-navy   { background: var(--navy); }
+    .bar-purple { background: var(--purple); }
+    .bar-teal   { background: var(--teal); }
+
+    /* Not reached message */
+    .not-reached {
+      padding: 32px 18px;
+      text-align: center;
+    }
+    .not-reached .nr-icon {
+      font-size: 48px;
+      margin-bottom: 12px;
+    }
+    .not-reached p {
+      margin: 0;
+      font-size: 15px;
+      color: #888;
+      line-height: 1.6;
+    }
+    .not-reached strong {
+      display: block;
+      color: var(--navy);
+      font-size: 17px;
+      margin-bottom: 8px;
+    }
+
+    /* Totals panel specific */
+    .totals-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 0;
+      border-bottom: 1px solid rgba(0,0,0,0.05);
+    }
+    .totals-row:last-child { border-bottom: none; }
+    
+    .totals-label {
+      font-size: 15px;
+      font-weight: 600;
+      color: #444;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    
+    .totals-dot {
+      width: 12px; height: 12px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    
+    .totals-value {
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--navy);
+    }
+
+    /* Search panel */
+    .search-container {
+      padding: 10px 0;
+    }
+    
+    #district-search {
+      width: 100%;
+      padding: 12px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      font-size: 16px;
+      margin-bottom: 10px;
+      font-family: inherit;
+    }
+    
+    #district-search:focus {
+      outline: none;
+      border-color: var(--teal);
+      box-shadow: 0 0 0 2px rgba(60,191,169,0.15);
+    }
+    
+    .search-results {
+      max-height: 300px;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+    
+    .search-result-item {
+      padding: 14px;
+      border-bottom: 1px solid #eee;
+      cursor: pointer;
+      font-size: 16px;
+      font-weight: 500;
+      transition: all 0.2s ease;
+    }
+    
+    .search-result-item:active {
+      background-color: #f0f9f7;
+    }
+
+    /* ---------- Legend ---------- */
+    #legend {
+      position: absolute;
+      bottom: 18px;
+      right: var(--mobile-padding);
+      background: rgba(255,255,255,0.9);
+      border-radius: 8px;
+      padding: 8px 12px;
+      box-shadow: 0 2px 10px rgba(2,2,68,0.08);
+      z-index: 65;
+      font-size: 10px;
+      transition: opacity 250ms ease, visibility 250ms ease;
+    }
+    #legend.hidden {
+      opacity: 0;
+      visibility: hidden;
+    }
+    .legend-title {
+      font-weight: 700;
+      color: var(--navy);
+      margin-bottom: 6px;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 4px;
+      color: #555;
+      font-weight: 500;
+    }
+    .legend-item:last-child { margin-bottom: 0; }
+    .legend-swatch {
+      width: 12px; height: 12px;
+      border-radius: 3px;
+      flex-shrink: 0;
+    }
+
+    /* ---------- Close Button ---------- */
+    .close-button {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: rgba(0,0,0,0.04);
+      border: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      cursor: pointer;
+      z-index: 100;
+      touch-action: manipulation;
+      transition: all 0.2s ease;
+      color: #666;
+    }
+    
+    .close-button:active {
+      background: rgba(0,0,0,0.1);
+      transform: scale(0.92);
+    }
+
+    /* ---------- ESC Hint ---------- */
+    #esc-hint {
+      position: absolute;
+      top: 14px;
+      right: 50px;
+      background: rgba(255,255,255,0.9);
+      border-radius: 6px;
+      padding: 6px 12px;
+      font-size: 11px;
+      color: #888;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+      z-index: 70;
+      opacity: 0;
+      pointer-events: none;
+      visibility: hidden;
+      transition: opacity 250ms ease, visibility 250ms ease;
+    }
+    #esc-hint.visible {
+      opacity: 1;
+      visibility: visible;
+    }
+
+    /* ---------- Loading ---------- */
+    .loading {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 200;
+      background: rgba(255,255,255,0.95);
+      padding: 20px 28px;
+      border-radius: 12px;
+      box-shadow: 0 4px 16px rgba(2,2,68,0.12);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-weight: 600;
+      color: var(--navy);
+      font-size: 14px;
+    }
+    
+    .loading-spinner {
+      width: 22px;
+      height: 22px;
+      border: 3px solid rgba(2,2,68,0.1);
+      border-radius: 50%;
+      border-top-color: var(--teal);
+      animation: spin 0.9s linear infinite;
+    }
+    
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* ---------- Media Queries ---------- */
+    @media (max-width: 350px) {
+      .header-text h1 { font-size: 15px; }
+      .panel-title { font-size: 18px; }
+      .impact-stat-value { font-size: 24px; }
+      .control-button { width: 36px; height: 36px; font-size: 16px; }
+    }
+  </style>
+</head>
+<body>
+  
+  <!-- HEADER -->
+  <div class="header" id="header">
+    <div class="header-card">
+      <img src="popLOGO.png" alt="POP Reach" class="header-logo" />
+      <div class="header-text">
+        <h1>POP Reach</h1>
+        <p>Point of Progress — Impact Map</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- MAP ROOT -->
+  <div id="map-root" role="application" aria-label="Malawi impact map">
+    <svg id="map-svg" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet"></svg>
+
+    <!-- CONTROL BUTTONS -->
+    <div class="control-buttons">
+      <div class="control-button-wrapper">
+        <button id="totals-button" class="control-button" aria-label="Show nationwide totals">📊</button>
+        <span class="button-label">Totals</span>
+      </div>
+      <div class="control-button-wrapper">
+        <button id="search-button" class="control-button" aria-label="Search districts">🔍</button>
+        <span class="button-label">Search</span>
+      </div>
+      <div class="control-button-wrapper">
+        <button id="reset-button" class="control-button" aria-label="Reset view">🏠</button>
+        <span class="button-label">Reset</span>
+      </div>
+    </div>
+
+    <!-- ESC HINT -->
+    <div id="esc-hint">Tap map to deselect</div>
+
+    <!-- LEGEND -->
+    <div id="legend">
+      <div class="legend-title">Key</div>
+      <div class="legend-item">
+        <div class="legend-swatch" style="background:var(--purple)"></div>
+        Reached
+      </div>
+      <div class="legend-item">
+        <div class="legend-swatch" style="background:var(--grey)"></div>
+        Not yet
+      </div>
+      <div class="legend-item">
+        <div class="legend-swatch" style="background:var(--teal)"></div>
+        Selected
+      </div>
+    </div>
+
+    <!-- PWA INSTALL BUTTON -->
+    <button id="pwa-install-button" class="pwa-install-button">
+      📲 Install App
+    </button>
+
+    <!-- DISTRICT INFO PANEL -->
+    <div id="info-panel" class="info-panel" role="dialog" aria-hidden="true">
+      <button class="close-button" aria-label="Close panel">×</button>
+      <div class="panel-header">
+        <div class="panel-title" id="info-panel-title">District</div>
+        <div class="panel-subtitle" id="info-panel-subtitle">Impact breakdown</div>
+      </div>
+      <div class="panel-content" id="info-panel-content"></div>
+    </div>
+
+    <!-- TOTALS PANEL -->
+    <div id="totals-panel" class="stats-panel">
+      <button class="close-button" aria-label="Close panel">×</button>
+      <div class="panel-header">
+        <div class="panel-title">POP Reach Impact</div>
+        <div class="panel-subtitle">Nationwide totals</div>
+      </div>
+      <div class="panel-content" id="totals-panel-content"></div>
+    </div>
+
+    <!-- SEARCH PANEL -->
+    <div id="search-panel" class="stats-panel">
+      <button class="close-button" aria-label="Close panel">×</button>
+      <div class="panel-header">
+        <div class="panel-title">Search Districts</div>
+        <div class="panel-subtitle">Find a district by name</div>
+      </div>
+      <div class="panel-content">
+        <div class="search-container">
+          <input type="text" id="district-search" placeholder="Type district name…" />
+          <div id="search-results" class="search-results"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- FOOTER LOGO -->
+    <div class="powered-by-footer" id="footer-logo">
+      <span class="powered-by-text">Powered by</span>
+      <img src="popLOGO.png" alt="POP Reach" class="powered-by-logo">
+    </div>
+
+    <!-- LOADING -->
+    <div id="loading" class="loading">
+      <div class="loading-spinner"></div>
+      <span>Loading data…</span>
+    </div>
+  </div>
+
+  <script>
+  (function(){
+    // ─────────────────────────────────────────────
+    //  CONFIG
+    // ─────────────────────────────────────────────
+    const DISTRICT_LABELS = {
+      "BALAKA": "BLK", "BLANTYRE": "BT", "CHIKWAWA": "CK",
+      "CHIRADZULU": "CR", "CHITIPA": "CP", "DEDZA": "DZ",
+      "DOWA": "DA", "KARONGA": "KA", "KASUNGU": "KU",
+      "LIKOMA": "LK", "LILONGWE": "LL", "MACHINGA": "MA",
+      "MANGOCHI": "MHG", "MCHINJI": "MC", "MULANJE": "MU",
+      "MWANZA": "MW", "MZIMBA": "MZ", "NENO": "NN",
+      "NKHATA BAY": "NB", "NKHOTAKOTA": "KK", "NSANJE": "NE",
+      "NTCHEU": "NU", "NTCHISI": "NS", "PHALOMBE": "PE",
+      "RUMPHI": "RU", "SALIMA": "SA", "THYOLO": "TO",
+      "ZOMBA": "ZA",
+    };
+
+    const IMPACT_COLUMNS = [
+      { key: "Young people Reached",        label: "Young People",   color: "#020244" },
+      { key: "Girls",                        label: "Girls",          color: "#6067AF" },
+      { key: "Boys",                         label: "Boys",           color: "#3CBFA9" },
+      { key: "Young Women Can Do it Clubs",  label: "Can Do Clubs",   color: "#5b9bd5" },
+      { key: "Self Help Groups",             label: "Self Help Grps", color: "#e87750" },
+    ];
+
+    const barClasses = ['bar-navy', 'bar-purple', 'bar-teal', 'bar-purple', 'bar-teal'];
+
+    // ─────────────────────────────────────────────
+    //  DOM REFS
+    // ─────────────────────────────────────────────
+    const mapRoot        = document.getElementById('map-root');
+    const svg            = d3.select('#map-svg');
+    let width = mapRoot.clientWidth, height = mapRoot.clientHeight;
+    svg.attr('viewBox', `0 0 ${width} ${height}`);
+
+    const mapGroup      = svg.append('g').attr('id', 'mapGroup');
+    const infoPanel     = d3.select('#info-panel');
+    const totalsPanel   = d3.select('#totals-panel');
+    const searchPanel   = d3.select('#search-panel');
+    const legend        = d3.select('#legend');
+    const escHint       = d3.select('#esc-hint');
+    const header        = d3.select('#header');
+    const footerLogo    = d3.select('#footer-logo');
+    const loading       = d3.select('#loading');
+    const districtSearch = d3.select('#district-search');
+    const searchResults  = d3.select('#search-results');
+
+    const pwaInstallButton = document.getElementById('pwa-install-button');
+
+    // ─────────────────────────────────────────────
+    //  PWA INSTALL PROMPT
+    // ─────────────────────────────────────────────
+    let deferredPrompt;
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      deferredPrompt = e;
+      pwaInstallButton.classList.add('visible');
+    });
+
+    pwaInstallButton.addEventListener('click', async () => {
+      if (!deferredPrompt) {
+        alert('To install:\n• iOS: Share → Add to Home Screen\n• Android: Menu → Install app');
+        return;
+      }
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      console.log('Install outcome:', outcome);
+      deferredPrompt = null;
+      pwaInstallButton.classList.remove('visible');
+    });
+
+    window.addEventListener('appinstalled', () => {
+      pwaInstallButton.classList.remove('visible');
+      deferredPrompt = null;
+    });
+
+    // ─────────────────────────────────────────────
+    //  PROJECTION & PATH
+    // ─────────────────────────────────────────────
+    const projection = d3.geoMercator()
+      .center([34.3015, -13.2543])
+      .scale(Math.min(width, height) * 10.5)
+      .translate([width / 2, height / 2 + 35]);
+
+    const path = d3.geoPath().projection(projection);
+
+    // ─────────────────────────────────────────────
+    //  STATE
+    // ─────────────────────────────────────────────
+    let impactData    = {};
+    let geoData       = null;
+    let districtSel   = null;
+    let lakeSel       = null;
+    let districtLabels = null;
+    let clickLayer    = null;
+    let zoomBehavior  = null;
+    let selectedFeature = null;
+    let selectedFeatureId = null;
+    let currentTransform = d3.zoomIdentity;
+    let maxVals       = {};
+    let totals        = {};
+
+    // ─────────────────────────────────────────────
+    //  HELPERS
+    // ─────────────────────────────────────────────
+    function norm(s) {
+      return (s || '').trim().toUpperCase().replace(/\s+/g, ' ');
+    }
+
+    function toTitleCase(s) {
+      return s.trim().replace(/\w\S*/g, w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase());
+    }
+
+    function featName(feat) {
+      const p = feat.properties || {};
+      for (const k of ['NAME_1','NAME','DISTRICT','Dist_Name','DISTRICT NAME','DISTNAME','DIST_NAME','district','District','name']) {
+        if (p[k] && typeof p[k] === 'string' && p[k].trim()) return p[k];
+      }
+      return '';
+    }
+
+    function distId(d) {
+      const p = d.properties || {};
+      return p.id || p.NAME_1 || p.DISTRICT || p.name || JSON.stringify(p).slice(0, 40);
+    }
+
+    function districtFill(d) {
+      return impactData[norm(featName(d))] ? '#6067AF' : '#d3d6d9';
+    }
+
+    function fmt(n) {
+      return Number(n).toLocaleString();
+    }
+
+    function isLake(f) {
+      const p = f.properties || {};
+      const t = (p.TYPE || p.type || '').toLowerCase();
+      const n = (p.NAME || p.NAME_1 || p.name || '').toLowerCase();
+      return t.includes('lake') || n.includes('lake');
+    }
+
+    function debounce(func, wait) {
+      let timeout;
+      return function() {
+        const context = this, args = arguments;
+        clearTimeout(timeout);
+        timeout = setTimeout(() => func.apply(context, args), wait);
+      };
+    }
+
+    // ─────────────────────────────────────────────
+    //  LOAD DATA
+    // ─────────────────────────────────────────────
+    async function loadData() {
+      try {
+        loading.style('display', 'flex');
+
+        const [geo, csvRows] = await Promise.all([
+          d3.json('malawi_districts.geojson'),
+          d3.csv('data.csv')
+        ]);
+
+        geoData = geo;
+
+        IMPACT_COLUMNS.forEach(c => totals[c.key] = 0);
+
+        csvRows.forEach(row => {
+          const distKey = norm(row['District'] || row['DISTRICT'] || '');
+          if (!distKey) return;
+          const record = {};
+          IMPACT_COLUMNS.forEach(c => {
+            const raw = (row[c.key] || '0').toString().replace(/,/g, '').trim();
+            record[c.key] = parseInt(raw, 10) || 0;
+            totals[c.key] += record[c.key];
+          });
+          impactData[distKey] = record;
+        });
+
+        IMPACT_COLUMNS.forEach(c => {
+          maxVals[c.key] = Math.max(...Object.values(impactData).map(d => d[c.key] || 0), 1);
+        });
+
+        drawMap();
+        loading.style('display', 'none');
+
+      } catch (err) {
+        console.error('Failed to load data:', err);
+        loading.select('span').text('Error loading data');
+      }
+    }
+
+    // ─────────────────────────────────────────────
+    //  DRAW MAP
+    // ─────────────────────────────────────────────
+    function drawMap() {
+      const features = geoData.features || [];
+      const lakes = features.filter(isLake);
+      const districts = features.filter(f => !isLake(f));
+
+      // Lakes
+      lakeSel = mapGroup.append('g').attr('class', 'lakes')
+        .selectAll('path').data(lakes).enter()
+        .append('path').attr('class', 'lake').attr('d', path);
+
+      // Districts (visual only)
+      districtSel = mapGroup.append('g').attr('class', 'districts')
+        .selectAll('path').data(districts).enter()
+        .append('path')
+        .attr('class', 'district')
+        .attr('d', path)
+        .attr('fill', d => districtFill(d));
+
+      // Click layer (invisible, for touch)
+      addClickLayer();
+
+      // Labels
+      addDistrictLabels();
+
+      // Zoom
+      initZoom();
+    }
+
+    // ─────────────────────────────────────────────
+    //  CLICK LAYER
+    // ─────────────────────────────────────────────
+    function addClickLayer() {
+      if (!geoData) return;
+      d3.selectAll('.click-layer').remove();
+
+      const districts = geoData.features.filter(f => !isLake(f));
+      clickLayer = mapGroup.append('g').attr('class', 'click-layer');
+
+      clickLayer.selectAll('path')
+        .data(districts).enter()
+        .append('path')
+        .attr('class', d => {
+          return norm(featName(d)) === 'LIKOMA'
+            ? 'district-click-target district-click-likoma'
+            : 'district-click-target';
+        })
+        .attr('d', path)
+        .on('click', function(event, d) {
+          event.stopPropagation();
+          onDistrictClick(d);
+        })
+        .on('touchstart', function(event, d) {
+          event.preventDefault();
+          onDistrictClick(d);
+        });
+    }
+
+    // ─────────────────────────────────────────────
+    //  DISTRICT LABELS
+    // ─────────────────────────────────────────────
+    function addDistrictLabels() {
+      if (!geoData) return;
+      d3.selectAll('.district-labels').remove();
+
+      const districts = geoData.features.filter(f => !isLake(f));
+      const labelsGroup = svg.append('g').attr('class', 'district-labels');
+
+      districtLabels = labelsGroup.selectAll('text')
+        .data(districts).enter()
+        .append('text')
+        .attr('class', 'district-label')
+        .text(d => {
+          const normName = norm(featName(d));
+          const hasImpact = !!impactData[normName];
+          if (hasImpact) return toTitleCase(featName(d));
+          return DISTRICT_LABELS[normName] || normName.substring(0, 3);
+        });
+
+      updateLabelsPosition();
+    }
+
+    function updateLabelsPosition() {
+      if (!districtLabels) return;
+      districtLabels
+        .attr('x', d => {
+          const centroid = path.centroid(d);
+          const transformed = currentTransform.apply(centroid);
+          return transformed[0];
+        })
+        .attr('y', d => {
+          const centroid = path.centroid(d);
+          const transformed = currentTransform.apply(centroid);
+          return transformed[1];
+        });
+    }
+
+    // ─────────────────────────────────────────────
+    //  ZOOM
+    // ─────────────────────────────────────────────
+    function initZoom() {
+      zoomBehavior = d3.zoom()
+        .scaleExtent([1, 12])
+        .on('zoom', (event) => {
+          currentTransform = event.transform;
+          mapGroup.attr('transform', event.transform);
+          updateLabelsPosition();
+        });
+      svg.call(zoomBehavior);
+    }
+
+    function focusOnFeature(feature) {
+      const bounds = path.bounds(feature);
+      const dx = bounds[1][0] - bounds[0][0];
+      const dy = bounds[1][1] - bounds[0][1];
+      const x = (bounds[0][0] + bounds[1][0]) / 2;
+      const y = (bounds[0][1] + bounds[1][1]) / 2;
+      const scale = Math.max(1, Math.min(12, 0.85 / Math.max(dx / (width * 0.55), dy / (height * 0.6))));
+      const translate = [width * 0.5 - scale * x, height * 0.45 - scale * y];
+
+      currentTransform = d3.zoomIdentity.translate(translate[0], translate[1]).scale(scale);
+      svg.call(zoomBehavior.transform, currentTransform);
+      updateLabelsPosition();
+      if (districtLabels) districtLabels.classed('hidden', true);
+    }
+
+    function resetView() {
+      selectedFeature = null;
+      selectedFeatureId = null;
+      currentTransform = d3.zoomIdentity;
+      svg.call(zoomBehavior.transform, currentTransform);
+
+      if (districtSel) {
+        districtSel.classed('faded', false).classed('focused', false).attr('fill', d => districtFill(d));
+      }
+      if (districtLabels) districtLabels.classed('hidden', false);
+      updateLabelsPosition();
+
+      hideAllPanels();
+      header.classed('hidden', false);
+      legend.classed('hidden', false);
+      escHint.classed('visible', false);
+      footerLogo.style('display', 'flex');
+    }
+
+    // ─────────────────────────────────────────────
+    //  DISTRICT CLICK
+    // ─────────────────────────────────────────────
+    function onDistrictClick(d) {
+      const id = distId(d);
+
+      if (selectedFeature && selectedFeatureId === id) {
+        resetView();
+        return;
+      }
+
+      selectedFeature = d;
+      selectedFeatureId = id;
+
+      header.classed('hidden', true);
+      legend.classed('hidden', true);
+      escHint.classed('visible', true);
+      footerLogo.style('display', 'none');
+      focusOnFeature(d);
+
+      districtSel
+        .classed('faded', dd => dd !== d)
+        .classed('focused', dd => dd === d)
+        .filter(dd => dd === d)
+        .attr('fill', '#3CBFA9')
+        .raise();
+
+      showPanel(infoPanel);
+      renderDistrictPanel(featName(d), impactData[norm(featName(d))]);
+    }
+
+    // ─────────────────────────────────────────────
+    //  PANEL MANAGEMENT
+    // ─────────────────────────────────────────────
+    function showPanel(panel) {
+      hideAllPanels();
+      panel.classed('visible', true).attr('aria-hidden', 'false');
+    }
+
+    function hideAllPanels() {
+      infoPanel.classed('visible', false).attr('aria-hidden', 'true');
+      totalsPanel.classed('visible', false).attr('aria-hidden', 'true');
+      searchPanel.classed('visible', false).attr('aria-hidden', 'true');
+    }
+
+    // ─────────────────────────────────────────────
+    //  RENDER PANELS
+    // ─────────────────────────────────────────────
+    function renderDistrictPanel(name, data) {
+      d3.select('#info-panel-title').text(name || 'District');
+
+      if (!data) {
+        d3.select('#info-panel-subtitle').text('No impact recorded');
+        d3.select('#info-panel-content').html(`
+          <div class="not-reached">
+            <div class="nr-icon">🗺️</div>
+            <p>
+              <strong>Area not reached yet</strong>
+              This district has not been part of the programme so far.
+            </p>
+          </div>`);
+        return;
+      }
+
+      d3.select('#info-panel-subtitle').text('Programme impact breakdown');
+
+      let html = '';
+      IMPACT_COLUMNS.forEach((col, i) => {
+        const val = data[col.key] || 0;
+        const pct = Math.round((val / (maxVals[col.key] || 1)) * 100);
+        html += `
+          <div class="impact-stat-row">
+            <div class="impact-stat-label">${col.label}</div>
+            <div class="impact-stat-value">${fmt(val)}</div>
+            <div class="impact-stat-bar-track">
+              <div class="impact-stat-bar ${barClasses[i]}" style="width:${pct}%"></div>
+            </div>
+          </div>`;
+      });
+
+      d3.select('#info-panel-content').html(html);
+    }
+
+    function renderTotalsPanel() {
+      let html = '';
+      IMPACT_COLUMNS.forEach(col => {
+        html += `
+          <div class="totals-row">
+            <span class="totals-label">
+              <span class="totals-dot" style="background:${col.color}"></span>
+              ${col.label}
+            </span>
+            <span class="totals-value">${fmt(totals[col.key] || 0)}</span>
+          </div>`;
+      });
+      d3.select('#totals-panel-content').html(html);
+    }
+    renderTotalsPanel();
+
+    // ─────────────────────────────────────────────
+    //  SEARCH
+    // ─────────────────────────────────────────────
+    function setupSearch() {
+      districtSearch.on('input', debounce(function() {
+        const query = this.value.toLowerCase().trim();
+        if (query.length < 2) {
+          searchResults.html('');
+          return;
+        }
+        if (!geoData) return;
+
+        const filtered = geoData.features.filter(f => {
+          if (isLake(f)) return false;
+          return featName(f).toLowerCase().includes(query);
+        });
+
+        let html = '';
+        if (filtered.length === 0) {
+          html = '<div class="search-result-item" style="color:#999">No districts found</div>';
+        } else {
+          filtered.forEach(district => {
+            const name = featName(district);
+            html += `<div class="search-result-item" data-name="${name}">${name}</div>`;
+          });
+        }
+        searchResults.html(html);
+
+        // Add click handlers
+        document.querySelectorAll('.search-result-item[data-name]').forEach(item => {
+          item.addEventListener('click', function() {
+            const name = this.getAttribute('data-name');
+            const feature = geoData.features.find(f =>
+              norm(featName(f)) === norm(name)
+            );
+            if (feature) {
+              hideAllPanels();
+              onDistrictClick(feature);
+              showPanel(infoPanel);
+            }
+          });
+        });
+      }, 300));
+    }
+    setupSearch();
+
+    // ─────────────────────────────────────────────
+    //  BUTTON HANDLERS
+    // ─────────────────────────────────────────────
+    d3.select('#totals-button').on('click', () => {
+      resetView();
+      header.classed('hidden', true);
+      legend.classed('hidden', true);
+      escHint.classed('visible', true);
+      footerLogo.style('display', 'none');
+      showPanel(totalsPanel);
+    });
+
+    d3.select('#search-button').on('click', () => {
+      showPanel(searchPanel);
+      districtSearch.node().value = '';
+      searchResults.html('');
+      setTimeout(() => districtSearch.node().focus(), 100);
+    });
+
+    d3.select('#reset-button').on('click', () => resetView());
+
+    // Close buttons
+    d3.selectAll('.close-button').on('click', function(event) {
+      event.stopPropagation();
+      resetView();
+    });
+
+    // Tap on SVG background to reset
+    svg.on('click', (event) => {
+      if (event.target.tagName && event.target.tagName.toLowerCase() === 'svg') {
+        resetView();
+      }
+    });
+
+    // ─────────────────────────────────────────────
+    //  RESIZE
+    // ─────────────────────────────────────────────
+    window.addEventListener('resize', debounce(() => {
+      width = mapRoot.clientWidth;
+      height = mapRoot.clientHeight;
+      svg.attr('viewBox', `0 0 ${width} ${height}`);
+      projection.scale(Math.min(width, height) * 10.5).translate([width / 2, height / 2 + 35]);
+      svg.selectAll('path').attr('d', path);
+      d3.selectAll('.click-layer').remove();
+      addClickLayer();
+      d3.selectAll('.district-labels').remove();
+      addDistrictLabels();
+    }, 250));
+
+    // ─────────────────────────────────────────────
+    //  INIT
+    // ─────────────────────────────────────────────
+    loadData();
+
+  })();
+  </script>
+</body>
+</html>
