@@ -264,29 +264,47 @@
       color: white;
     }
 
-    .pwa-install-button {
+    /* ── FLOATING INSTALL BUTTON ── */
+    .install-floating-btn {
       position: fixed;
-      bottom: 24px;
+      bottom: 22px;
       right: 16px;
       z-index: 1000;
-      background-color: var(--navy);
-      color: white;
+      display: none;
+      align-items: center;
+      gap: 8px;
+      background: var(--navy);
+      color: #fff;
       border: none;
       border-radius: 50px;
       padding: 12px 20px;
       font-size: 14px;
       font-weight: 600;
-      box-shadow: 0 4px 14px rgba(2,2,68,0.3);
-      cursor: pointer;
-      display: none;
-      align-items: center;
-      gap: 6px;
-      transition: all 0.3s ease;
       font-family: inherit;
+      box-shadow: 0 6px 20px rgba(2,2,68,0.35);
+      cursor: pointer;
+      transition: transform 0.25s ease, box-shadow 0.25s ease, opacity 0.3s ease;
+      animation: installFloat 3s ease-in-out infinite;
+      white-space: nowrap;
     }
 
-    .pwa-install-button.visible {
+    .install-floating-btn.visible {
       display: flex;
+    }
+
+    .install-floating-btn:active {
+      transform: scale(0.94);
+      box-shadow: 0 3px 10px rgba(2,2,68,0.25);
+    }
+
+    .install-floating-btn .install-icon {
+      font-size: 18px;
+      line-height: 1;
+    }
+
+    @keyframes installFloat {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-6px); }
     }
 
     /* Panel styles - matching election map exactly */
@@ -596,6 +614,7 @@
       .control-button { width: 36px; height: 36px; font-size: 16px; }
       .totals-value { font-size: 14px; }
       .totals-label { font-size: 11px; }
+      .install-floating-btn { padding: 10px 16px; font-size: 12px; }
     }
   </style>
 </head>
@@ -652,8 +671,9 @@
       </div>
     </div>
 
-    <button id="pwa-install-button" class="pwa-install-button">
-      📲 Install App
+    <!-- FLOATING INSTALL BUTTON -->
+    <button id="install-floating-btn" class="install-floating-btn" aria-label="Install app">
+      <span class="install-icon">📲</span> Install App
     </button>
 
     <div id="info-panel" class="info-panel" role="dialog" aria-hidden="true">
@@ -742,34 +762,108 @@
     const districtSearch = d3.select('#district-search');
     const searchResults  = d3.select('#search-results');
 
-    const pwaInstallButton = document.getElementById('pwa-install-button');
+    const installBtn     = document.getElementById('install-floating-btn');
 
     // ─────────────────────────────────────────────
-    //  PWA INSTALL PROMPT
+    //  PWA INSTALL — robust detection
     // ─────────────────────────────────────────────
-    let deferredPrompt;
-    window.addEventListener('beforeinstallprompt', (e) => {
-      e.preventDefault();
-      deferredPrompt = e;
-      pwaInstallButton.classList.add('visible');
-    });
 
-    pwaInstallButton.addEventListener('click', async () => {
-      if (!deferredPrompt) {
-        alert('To install:\n• iOS: Share → Add to Home Screen\n• Android: Menu → Install app');
-        return;
+    // Check if already running as standalone PWA
+    function isRunningStandalone() {
+      return (
+        window.matchMedia('(display-mode: standalone)').matches ||
+        window.matchMedia('(display-mode: fullscreen)').matches ||
+        window.matchMedia('(display-mode: minimal-ui)').matches ||
+        ('standalone' in navigator && navigator.standalone === true) // iOS
+      );
+    }
+
+    // If already installed — never show the button
+    if (isRunningStandalone()) {
+      console.log('App is already installed — hiding install button permanently');
+      // Keep button hidden forever
+    } else {
+      let deferredPrompt = null;
+
+      // Android / Chrome — beforeinstallprompt fires when eligible
+      window.addEventListener('beforeinstallprompt', (e) => {
+        e.preventDefault();
+        deferredPrompt = e;
+        installBtn.classList.add('visible');
+        console.log('Install prompt available (Android/Chrome)');
+      });
+
+      // iOS detection — show button for iOS Safari users
+      function isIOS() {
+        return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
       }
-      deferredPrompt.prompt();
-      const { outcome } = await deferredPrompt.userChoice;
-      console.log('Install outcome:', outcome);
-      deferredPrompt = null;
-      pwaInstallButton.classList.remove('visible');
-    });
 
-    window.addEventListener('appinstalled', () => {
-      pwaInstallButton.classList.remove('visible');
-      deferredPrompt = null;
-    });
+      function isSafari() {
+        const ua = navigator.userAgent;
+        return /Safari/.test(ua) && !/Chrome/.test(ua) && !/CriOS/.test(ua) && !/FxiOS/.test(ua);
+      }
+
+      // Show button for iOS Safari (no beforeinstallprompt on iOS)
+      if (isIOS() && isSafari() && !isRunningStandalone()) {
+        // Delay slightly so it doesn't flash on load
+        setTimeout(() => {
+          if (!isRunningStandalone()) {
+            installBtn.classList.add('visible');
+            console.log('Showing install button for iOS Safari');
+          }
+        }, 2000);
+      }
+
+      // Handle click
+      installBtn.addEventListener('click', async () => {
+        // Android/Chrome — use deferred prompt
+        if (deferredPrompt) {
+          deferredPrompt.prompt();
+          const { outcome } = await deferredPrompt.userChoice;
+          console.log('Install outcome:', outcome);
+          deferredPrompt = null;
+          installBtn.classList.remove('visible');
+
+          if (outcome === 'accepted') {
+            // Button stays hidden, user installed
+            return;
+          }
+          // If dismissed, could show iOS fallback below
+        }
+
+        // iOS fallback instructions
+        if (isIOS()) {
+          alert(
+            'To install Point of Progress Reach:\n\n' +
+            '1. Tap the Share button 📤\n' +
+            '2. Scroll down and tap "Add to Home Screen"\n' +
+            '3. Tap "Add" in the top right'
+          );
+        } else {
+          // Generic fallback
+          alert(
+            'To install:\n\n' +
+            '• Android: Open the menu (⋮) and tap "Install app" or "Add to Home Screen"\n' +
+            '• Desktop: Click the install icon in the address bar'
+          );
+        }
+      });
+
+      // Hide button once app is installed
+      window.addEventListener('appinstalled', () => {
+        console.log('PWA was installed');
+        installBtn.classList.remove('visible');
+        deferredPrompt = null;
+      });
+
+      // Also monitor display-mode changes
+      window.matchMedia('(display-mode: standalone)').addEventListener('change', (e) => {
+        if (e.matches) {
+          installBtn.classList.remove('visible');
+          deferredPrompt = null;
+        }
+      });
+    }
 
     // ─────────────────────────────────────────────
     //  PROJECTION & PATH - matching election map zoom
